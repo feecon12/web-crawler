@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Add your models below this line
+model Website {
+  id          Int      @id @default(autoincrement())
+  url         String   @unique
+  name        String?
+  crawlDelay  Int      @default(5000)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  jobs        CrawlJob[]
+}
+
+model CrawlJob {
+  id          Int       @id @default(autoincrement())
+  url         String
+  status      JobStatus @default(PENDING)
+  priority    Int       @default(0)
+  data        Json?
+  error       String?
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  websiteId   Int?
+  website     Website?  @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+
+  @@map("crawl_jobs")
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
