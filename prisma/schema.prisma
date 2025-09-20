@@ -31,6 +31,9 @@ model CrawlJob {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  //Add this new field for extraction rules
+  extractRules   Json?   
+
   websiteId   Int?
   website     Website?  @relation(fields: [websiteId], references: [id], onDelete: Cascade)
 

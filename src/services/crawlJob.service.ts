@@ -1,20 +1,29 @@
+import { Prisma } from "@prisma/client";
 import prisma from "../db";
 import { CrawlJobData, crawlQueue } from "../queues/crawl.queue";
-import { JobStatus } from "../types";
+import { ExtractionRule, JobStatus } from "../types";
 
-export const createCrawlJob = async (url: string): Promise<any> => {
-  //craete job record in databse
+export const createCrawlJob = async (
+  url: string,
+  extractRules?: ExtractionRule[]
+): Promise<any> => {
+  const extractRulesValue =
+    extractRules && extractRules.length > 0
+      ? (extractRules as unknown as Prisma.InputJsonValue)
+      : undefined;
+
   const job = await prisma.crawlJob.create({
     data: {
       url,
       status: JobStatus.PENDING,
+      extractRules: extractRulesValue,
     },
   });
 
-  //add job to BullMQ queue
   await crawlQueue.add("crawl", {
     jobId: job.id,
     url: url,
+    extractRules: extractRules || [],
   } as CrawlJobData);
 
   return job;

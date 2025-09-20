@@ -1,10 +1,11 @@
 // src/services/scraper.service.ts
-import { chromium, Browser, Page } from "playwright";
+import { Browser, chromium, Page } from "playwright";
 import { config } from "../config";
-import { ScrapedData } from "../types";
+import { ExtractionRule, ScrapedData } from "../types";
 
 export const scrapeUrlWithPlaywright = async (
-  url: string
+  url: string,
+  extractRules?: ExtractionRule[]
 ): Promise<ScrapedData> => {
   let browser: Browser | null = null;
 
@@ -18,12 +19,13 @@ export const scrapeUrlWithPlaywright = async (
 
     // Navigate to the URL
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
-
-    // Wait for a brief moment to ensure content is loaded
     await page.waitForTimeout(2000);
 
-    // Extract data from the page
-    const data = await extractPageData(page);
+    //USE TRAGETE EXTRACTION OF RULES ARE PROVIDED
+    const data =
+      extractRules && extractRules.length > 0
+        ? await extractWithRules(page, extractRules)
+        : await extractPageData(page);
 
     await browser.close();
     return data;
@@ -36,6 +38,87 @@ export const scrapeUrlWithPlaywright = async (
   }
 };
 
+// NEW: Targeted extraction function
+const extractWithRules = async (
+  page: Page,
+  rules: ExtractionRule[]
+): Promise<ScrapedData> => {
+  const result: ScrapedData = {};
+
+  for (const rule of rules) {
+    try {
+      const elementExists = await page.$(rule.selector).then((el) => !!el);
+
+      if (!elementExists) {
+        result[rule.name] = rule.multiple ? [] : null;
+        continue;
+      }
+
+      if (rule.multiple) {
+        // Extract ALL matching elements
+        result[rule.name] = await page.$$eval(
+          rule.selector,
+          (elements, currentRule) => {
+            return elements
+              .map((el) => {
+                try {
+                  switch (currentRule.type) {
+                    case "text":
+                      return el.textContent?.trim() || null;
+                    case "html":
+                      return el.innerHTML.trim();
+                    case "attribute":
+                      return currentRule.attribute
+                        ? el.getAttribute(currentRule.attribute)
+                        : null;
+                    default:
+                      return null;
+                  }
+                } catch (error) {
+                  return null;
+                }
+              })
+              .filter((item) => item !== null); // Filter out null results
+          },
+          rule
+        );
+      } else {
+        // Extract ONLY THE FIRST matching element
+        result[rule.name] = await page
+          .$eval(
+            rule.selector,
+            (el, currentRule) => {
+              try {
+                switch (currentRule.type) {
+                  case "text":
+                    return el.textContent?.trim() || null;
+                  case "html":
+                    return el.innerHTML.trim();
+                  case "attribute":
+                    return currentRule.attribute
+                      ? el.getAttribute(currentRule.attribute)
+                      : null;
+                  default:
+                    return null;
+                }
+              } catch (error) {
+                return null;
+              }
+            },
+            rule
+          )
+          .catch(() => null); // If selector fails, return null
+      }
+    } catch (error) {
+      console.warn(`Failed to extract with rule ${rule.name}:`, error);
+      result[rule.name] = rule.multiple ? [] : null;
+    }
+  }
+
+  return result;
+};
+
+// Fallback function for general scraping (when no rules provided)
 const extractPageData = async (page: Page): Promise<ScrapedData> => {
   // This is a basic example - you'll want to customize this for your needs
   const data: ScrapedData = {};

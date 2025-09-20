@@ -2,13 +2,14 @@
 import express from "express";
 import { createCrawlJob, getCrawlJob } from "../../services/crawlJob.service";
 import prisma from "../../db";
+import { CrawlJobCreateInput } from "../../types";
 
 const router = express.Router();
 
 // POST /api/jobs - Create a new crawl job
 router.post("/", async (req, res, next) => {
   try {
-    const { url } = req.body;
+    const { url, extractRules }: CrawlJobCreateInput = req.body;
 
     if (!url) {
       return res.status(400).json({ error: "URL is required" });
@@ -21,7 +22,7 @@ router.post("/", async (req, res, next) => {
       return res.status(400).json({ error: "Invalid URL format" });
     }
 
-    const job = await createCrawlJob(url);
+    const job = await createCrawlJob(url, extractRules);
 
     res.status(202).json({
       message: "Crawl job submitted successfully",
