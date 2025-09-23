@@ -1,28 +1,47 @@
 // src/queues/processors/crawl.processor.ts
-import { Worker } from "bullmq";
-import { Job } from "bullmq";
-import redisConnection from "../index";
-import { CrawlJobData } from "../crawl.queue";
-import { scrapeUrlWithPlaywright } from "../../services/scraper.service";
+import { Job, Worker } from "bullmq";
 import { updateCrawlJobStatus } from "../../services/crawlJob.service";
+import {
+  getOrCreateDomainRule,
+  updateDomainRuleFromRobots,
+} from "../../services/domain.service";
+import { scrapeUrlWithPlaywright } from "../../services/scraper.service";
 import { JobStatus } from "../../types";
+import { CrawlJobData } from "../crawl.queue";
+import redisConnection from "../index";
 
 // Create the worker
 export const crawlerWorker = new Worker<CrawlJobData>(
   "crawl",
   async (job: Job<CrawlJobData>) => {
-    const { jobId, url } = job.data;
+    const { jobId, url, domain, extractRules } = job.data;
 
-    console.log(`🔄 Starting crawl job ${jobId}: ${url}`);
+    console.log(`🔄 Starting crawl job ${jobId} for URL: ${url}`);
 
     try {
-      // Update status to RUNNING
+      /// 1. Update status to RUNNING
       await updateCrawlJobStatus(jobId, JobStatus.RUNNING);
 
-      // Execute the crawl
-      const scrapedData = await scrapeUrlWithPlaywright(url);
+      // 2. Politeness Check: Check and update robots.txt rules for the domain
+      await updateDomainRuleFromRobots(domain);
+      const domainRule = await getOrCreateDomainRule(domain);
 
-      // Update status to COMPLETED with data
+      if (!domainRule.allowed) {
+        console.warn(
+          `Crawling diallowed for domain ${domain} by robots.txt. Failing job ${jobId}.`
+        );
+        //If not allowed, faul the job immediately
+        throw new Error(`Crawling diallowed for domain ${domain}`);
+      }
+
+      // 3. Execute the crawl with the provided rules
+      console.log(`Starting Playwright scrape for job ${jobId}`);
+      const scrapedData = await scrapeUrlWithPlaywright(
+        url,
+        extractRules || []
+      );
+
+      // 4. Update status to COMPLETED with data
       await updateCrawlJobStatus(jobId, JobStatus.COMPLETED, scrapedData);
 
       console.log(`✅ Completed crawl job ${jobId}`);
@@ -31,7 +50,7 @@ export const crawlerWorker = new Worker<CrawlJobData>(
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error occurred";
 
-      // Update status to FAILED with error
+      // 5. Update status to FAILED with error
       await updateCrawlJobStatus(
         jobId,
         JobStatus.FAILED,
@@ -59,11 +78,11 @@ crawlerWorker.on("completed", (job) => {
 });
 
 crawlerWorker.on("failed", (job, error) => {
-  console.error(`💥 Job ${job?.id} failed:`, error.message);
+  console.error(`💥 Job ${job?.id} failed with error:`, error.message);
 });
 
 crawlerWorker.on("error", (error) => {
-  console.error("❌ Worker error:", error);
+  console.error("❌ A Worker error occured:", error);
 });
 
-console.log("✅ Crawler worker started");
+console.log("✅ Crawler worker started and listening for jobs.");

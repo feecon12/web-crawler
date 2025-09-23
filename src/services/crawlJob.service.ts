@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { URL } from 'url';
 import prisma from "../db";
 import { CrawlJobData, crawlQueue } from "../queues/crawl.queue";
 import { ExtractionRule, JobStatus } from "../types";
@@ -7,6 +8,8 @@ export const createCrawlJob = async (
   url: string,
   extractRules?: ExtractionRule[]
 ): Promise<any> => {
+  const domain = new URL(url).hostname;
+
   const extractRulesValue =
     extractRules && extractRules.length > 0
       ? (extractRules as unknown as Prisma.InputJsonValue)
@@ -23,6 +26,7 @@ export const createCrawlJob = async (
   await crawlQueue.add("crawl", {
     jobId: job.id,
     url: url,
+    domain: domain,
     extractRules: extractRules || [],
   } as CrawlJobData);
 

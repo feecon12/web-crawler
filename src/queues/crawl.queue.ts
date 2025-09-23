@@ -1,10 +1,13 @@
 import { Queue } from "bullmq";
 import redisConnection from "./index";
+import {ExtractionRule} from '../types'
 
 //define the job data type
 export interface CrawlJobData {
   jobId: number;
   url: string;
+  domain: string;
+  extractRules: ExtractionRule[];
 }
 
 //Create the queue
