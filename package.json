@@ -5,9 +5,9 @@
   "scripts": {
     "dev": "nodemon src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "npm run build && npx prisma migrate deploy && node dist/index.js",
     "start:prod": "npx prisma migrate deploy && node dist/index.js",
-    "postinstall": "npx prisma generate",
+    "postinstall": "npx prisma generate && npm run build && npx playwright install chromium",
     "test": "jest",
     "test:watch": "jest --watch",
     "kill-browsers": "node scripts/kill-browsers.js",
