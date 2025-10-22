@@ -1,7 +1,7 @@
 databases:
   - name: web-crawler-db
-    databaseName: web_crawler
-    user: web_crawler_user
+    databaseName: web_crawler_db
+    user: web_crawler_db_user
 
 services:
   # Web Service (Main Application)
