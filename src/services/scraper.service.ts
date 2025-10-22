@@ -12,18 +12,42 @@ export const scrapeUrlWithPlaywright = async (
 
   try {
     console.log(`🌐 Launching browser for ${url}`);
-    browser = await chromium.launch({
-      headless: config.playwright.headless,
-      args: [
-        ...config.playwright.args,
-        "--disable-dev-shm-usage", // Helps with memory issues
-        "--disable-gpu",
-        "--no-first-run",
-        "--disable-background-timer-throttling",
-        "--disable-renderer-backgrounding",
-      ],
-      timeout: config.playwright.timeout,
-    });
+
+    try {
+      browser = await chromium.launch({
+        headless: config.playwright.headless,
+        args: [
+          ...config.playwright.args,
+          "--disable-dev-shm-usage", // Helps with memory issues
+          "--disable-gpu",
+          "--no-first-run",
+          "--disable-background-timer-throttling",
+          "--disable-renderer-backgrounding",
+        ],
+        timeout: config.playwright.timeout,
+      });
+    } catch (launchError: any) {
+      console.log(`❌ Browser launch failed: ${launchError.message}`);
+      // If browser executable not found, try with system path
+      if (launchError.message.includes("Executable doesn't exist")) {
+        console.log(`🔄 Retrying with system chromium...`);
+        browser = await chromium.launch({
+          headless: config.playwright.headless,
+          executablePath: "/usr/bin/chromium-browser", // Common Linux path
+          args: [
+            ...config.playwright.args,
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+            "--no-first-run",
+            "--disable-background-timer-throttling",
+            "--disable-renderer-backgrounding",
+          ],
+          timeout: config.playwright.timeout,
+        });
+      } else {
+        throw launchError;
+      }
+    }
 
     page = await browser.newPage();
 

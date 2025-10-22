@@ -29,6 +29,7 @@ export const config = {
             "--disable-gpu",
             "--single-process",
             "--disable-background-timer-throttling",
+            "--disable-web-security",
           ]
         : [],
   },
