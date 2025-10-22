@@ -25,11 +25,14 @@ services:
   # PostgreSQL Database
   - type: pserv
     name: web-crawler-db
-    env: postgresql
-    plan: starter # Free tier
+    plan: starter
+    databaseName: web_crawler
+    user: web_crawler_user
+    ipAllowList: []
 
   # Redis Service
   - type: redis
     name: web-crawler-redis
-    plan: starter # Free tier
+    plan: starter
     maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
