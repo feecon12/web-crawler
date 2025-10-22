@@ -26,13 +26,9 @@ services:
   - type: pserv
     name: web-crawler-db
     plan: starter
-    databaseName: web_crawler
-    user: web_crawler_user
-    ipAllowList: []
 
   # Redis Service
   - type: redis
     name: web-crawler-redis
     plan: starter
     maxmemoryPolicy: allkeys-lru
-    ipAllowList: []
