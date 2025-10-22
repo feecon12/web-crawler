@@ -7,7 +7,7 @@
     "build": "tsc",
     "start": "npm run build && npx prisma migrate deploy && node dist/index.js",
     "start:prod": "npx prisma migrate deploy && node dist/index.js",
-    "postinstall": "npx prisma generate && npm run build && npx playwright install chromium",
+    "postinstall": "npx prisma generate",
     "test": "jest",
     "test:watch": "jest --watch",
     "kill-browsers": "node scripts/kill-browsers.js",
