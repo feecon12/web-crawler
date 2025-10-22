@@ -46,8 +46,8 @@ export const checkRobotsTxt = async (
     console.warn(`Could not fetch robots.txt for ${domain}:`, error.message);
   }
 
-  // Default to true if robots.txt can't be fetched or parsed
-  return false;
+  // Default to true if robots.txt can't be fetched or parsed (permissive for testing)
+  return true;
 };
 
 export const updateDomainRuleFromRobots = async (

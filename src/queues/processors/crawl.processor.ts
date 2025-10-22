@@ -23,18 +23,30 @@ export const crawlerWorker = new Worker<CrawlJobData>(
       await updateCrawlJobStatus(jobId, JobStatus.RUNNING);
 
       // 2. Politeness Check: Check and update robots.txt rules for the domain
-      await updateDomainRuleFromRobots(domain);
-      const domainRule = await getOrCreateDomainRule(domain);
+      try {
+        await updateDomainRuleFromRobots(domain);
+        const domainRule = await getOrCreateDomainRule(domain);
 
-      if (!domainRule.allowed) {
+        if (!domainRule.allowed) {
+          console.warn(
+            `Crawling disallowed for domain ${domain} by robots.txt. Failing job ${jobId}.`
+          );
+          throw new Error(
+            `Crawling disallowed by robots.txt for domain: ${domain}`
+          );
+        }
+        console.log(`✅ Politeness check passed for domain: ${domain}`);
+      } catch (error: any) {
+        // If it's already a "disallowed" error, re-throw it
+        if (error.message.includes("disallowed")) {
+          throw error;
+        }
+        // For other errors (network, etc.), log but allow crawling
         console.warn(
-          `Crawling diallowed for domain ${domain} by robots.txt. Failing job ${jobId}.`
+          `⚠️ Robots.txt check failed for ${domain}, proceeding anyway:`,
+          error.message
         );
-        //If not allowed, faul the job immediately
-        throw new Error(`Crawling diallowed for domain ${domain}`);
-      }
-
-      // 3. Execute the crawl with the provided rules
+      } // 3. Execute the crawl with the provided rules
       console.log(`Starting Playwright scrape for job ${jobId}`);
       const scrapedData = await scrapeUrlWithPlaywright(
         url,
@@ -64,10 +76,10 @@ export const crawlerWorker = new Worker<CrawlJobData>(
   },
   {
     connection: redisConnection,
-    concurrency: 5, // Process 5 jobs concurrently
+    concurrency: 1, // Process only 1 job at a time to avoid multiple browsers
     limiter: {
-      max: 10, // Max 10 jobs per period
-      duration: 1000, // Per second (1 second)
+      max: 1, // Max 1 job per 3 seconds (slower rate)
+      duration: 3000, // Per 3 seconds
     },
   }
 );

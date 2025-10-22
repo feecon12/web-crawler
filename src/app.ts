@@ -2,9 +2,8 @@ import cors from "cors";
 import express from "express";
 import helmet from "helmet";
 import morgan from "morgan";
-// import { config } from './config';
-import jobRoutes from './routes/api/jobs'
-
+import jobRoutes from "./routes/api/jobs";
+import path from "path";
 
 const app = express();
 
@@ -19,12 +18,19 @@ app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-//API routes will be here later
-app.use('/api/jobs', jobRoutes);
+//API routes FIRST
+app.use("/api/jobs", jobRoutes);
 
-//404 handler
-app.use((req, res) => {
-  res.status(404).json({ message: "Route not found" });
+//Serve static files (this will handle / and serve index.html)
+app.use(express.static(path.join(__dirname, "../public")));
+
+//404 handler for API routes (using middleware function)
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api/")) {
+    res.status(404).json({ message: "API route not found" });
+  } else {
+    next();
+  }
 });
 
 //Global error handler

@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { URL } from 'url';
+import { URL } from "url";
 import prisma from "../db";
 import { CrawlJobData, crawlQueue } from "../queues/crawl.queue";
 import { ExtractionRule, JobStatus } from "../types";

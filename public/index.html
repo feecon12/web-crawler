@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Crawler Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>🕷️ Web Crawler Dashboard</h1>
+            <p>Submit URLs for crawling with custom extraction rules</p>
+        </header>
+
+        <main>
+            <!-- Job Submission Section -->
+            <section class="submission-section">
+                <h2>Submit New Crawl Job</h2>
+                <form id="job-form">
+                    <div class="form-group">
+                        <label for="url">URL to Crawl</label>
+                        <input type="url" id="url" name="url" placeholder="https://example.com" required>
+                    </div>
+
+                    <div class="extraction-rules">
+                        <h3>Extraction Rules</h3>
+                        <div id="rules-container">
+                            <!-- Dynamic rules will be added here -->
+                        </div>
+                        <button type="button" id="add-rule-btn" class="btn-secondary">+ Add Rule</button>
+                    </div>
+
+                    <button type="submit" class="btn-primary">Submit Job</button>
+                </form>
+            </section>
+
+            <!-- Job Status Section -->
+            <section class="status-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h2 style="margin-bottom: 0;">Recent Jobs</h2>
+                    <span id="job-count" style="font-size: 0.9rem; color: var(--text-muted);">0 jobs</span>
+                </div>
+
+
+
+                <div id="jobs-list">
+                    <!-- Jobs will be loaded here -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Rule Template -->
+    <template id="rule-template">
+        <div class="rule-card">
+            <button type="button" class="remove-rule-btn">&times;</button>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Field Name</label>
+                    <input type="text" class="rule-name" placeholder="e.g., title" required>
+                </div>
+                <div class="form-group">
+                    <label>Selector Type</label>
+                    <select class="rule-selector-type">
+                        <option value="css">CSS</option>
+                        <option value="xpath" selected>XPath</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group" style="flex: 2;">
+                    <label class="selector-label">XPath</label>
+                    <input type="text" class="rule-selector" placeholder="e.g., //h1[@class='title']" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Type</label>
+                    <select class="rule-type">
+                        <option value="text">Text</option>
+                        <option value="html">HTML</option>
+                        <option value="attribute">Attribute</option>
+                    </select>
+                </div>
+                <div class="form-group rule-attribute-group" style="display: none;">
+                    <label>Attribute Name</label>
+                    <input type="text" class="rule-attribute" placeholder="e.g., href">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" class="rule-multiple">
+                    Extract multiple elements
+                </label>
+            </div>
+        </div>
+    </template>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

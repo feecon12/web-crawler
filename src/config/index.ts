@@ -16,5 +16,20 @@ export const config = {
 
   playwright: {
     headless: process.env.PLAYWRIGHT_HEADLESS !== "false",
+    timeout: 30000,
+    args:
+      process.env.NODE_ENV === "production"
+        ? [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-accelerated-2d-canvas",
+            "--no-first-run",
+            "--no-zygote",
+            "--disable-gpu",
+            "--single-process",
+            "--disable-background-timer-throttling",
+          ]
+        : [],
   },
 };

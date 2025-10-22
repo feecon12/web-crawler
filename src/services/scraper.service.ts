@@ -1,5 +1,5 @@
 // src/services/scraper.service.ts
-import { Browser, chromium, Page } from "playwright";
+import { Browser, chromium, ElementHandle, Page } from "playwright";
 import { config } from "../config";
 import { ExtractionRule, ScrapedData } from "../types";
 
@@ -8,33 +8,132 @@ export const scrapeUrlWithPlaywright = async (
   extractRules?: ExtractionRule[]
 ): Promise<ScrapedData> => {
   let browser: Browser | null = null;
+  let page: Page | null = null;
 
   try {
+    console.log(`🌐 Launching browser for ${url}`);
     browser = await chromium.launch({
       headless: config.playwright.headless,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      args: [
+        ...config.playwright.args,
+        "--disable-dev-shm-usage", // Helps with memory issues
+        "--disable-gpu",
+        "--no-first-run",
+        "--disable-background-timer-throttling",
+        "--disable-renderer-backgrounding",
+      ],
+      timeout: config.playwright.timeout,
     });
 
-    const page: Page = await browser.newPage();
+    page = await browser.newPage();
 
-    // Navigate to the URL
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+    // Set a reasonable timeout
+    await page.setDefaultTimeout(30000);
+
+    console.log(`📄 Navigating to ${url}`);
+    // Navigate to the URL with proper error handling
+    await page.goto(url, {
+      waitUntil: "domcontentloaded",
+      timeout: 30000,
+    });
+
+    // Wait a bit for dynamic content
     await page.waitForTimeout(2000);
 
-    //USE TRAGETE EXTRACTION OF RULES ARE PROVIDED
+    console.log(`🔍 Extracting data from ${url}`);
+    //USE TARGETED EXTRACTION IF RULES ARE PROVIDED
+    let migratedRules = extractRules;
+    if (extractRules && extractRules.length > 0) {
+      // Add backward compatibility for rules without selectorType
+      migratedRules = extractRules.map((rule) => ({
+        ...rule,
+        selectorType: rule.selectorType || ("css" as "css" | "xpath"),
+      }));
+      console.log(
+        `🎯 Using ${migratedRules.length} extraction rule(s) with selector types`
+      );
+    }
+
     const data =
-      extractRules && extractRules.length > 0
-        ? await extractWithRules(page, extractRules)
+      migratedRules && migratedRules.length > 0
+        ? await extractWithRules(page, migratedRules)
         : await extractPageData(page);
 
-    await browser.close();
+    console.log(`✅ Successfully scraped ${url}, closing browser`);
     return data;
   } catch (error) {
-    if (browser) {
-      await browser.close();
-    }
-    console.error(`Playwright scraping failed for ${url}:`, error);
+    console.error(`❌ Playwright scraping failed for ${url}:`, error);
     throw error;
+  } finally {
+    // Always close the browser, even on errors
+    try {
+      if (page) {
+        console.log(`🔒 Closing page for ${url}`);
+        await page.close();
+      }
+      if (browser) {
+        console.log(`🔒 Closing browser for ${url}`);
+        await browser.close();
+      }
+    } catch (closeError) {
+      console.warn(`⚠️ Error closing browser for ${url}:`, closeError);
+    }
+  }
+};
+
+// Helper function to get elements based on selector type
+const getElements = async (
+  page: Page,
+  rule: ExtractionRule
+): Promise<ElementHandle[]> => {
+  if (rule.selectorType === "xpath") {
+    return await page.locator(`xpath=${rule.selector}`).elementHandles();
+  } else {
+    return await page.$$(rule.selector);
+  }
+};
+
+// Helper function to get single element based on selector type
+const getElement = async (
+  page: Page,
+  rule: ExtractionRule
+): Promise<ElementHandle | null> => {
+  if (rule.selectorType === "xpath") {
+    const elements = await page
+      .locator(`xpath=${rule.selector}`)
+      .elementHandles();
+    return elements.length > 0 ? elements[0] : null;
+  } else {
+    return await page.$(rule.selector);
+  }
+};
+
+// Helper function to extract value from element
+const extractValueFromElement = async (
+  element: ElementHandle,
+  rule: ExtractionRule
+): Promise<string | null> => {
+  try {
+    switch (rule.type) {
+      case "text":
+        return await element.evaluate(
+          (el: any) => el.textContent?.trim() || null
+        );
+      case "html":
+        return await element.evaluate(
+          (el: any) => el.innerHTML?.trim() || null
+        );
+      case "attribute":
+        if (!rule.attribute) return null;
+        return await element.evaluate(
+          (el: any, attr: string) => el.getAttribute(attr),
+          rule.attribute
+        );
+      default:
+        return null;
+    }
+  } catch (error) {
+    return null;
   }
 };
 
@@ -47,67 +146,30 @@ const extractWithRules = async (
 
   for (const rule of rules) {
     try {
-      const elementExists = await page.$(rule.selector).then((el) => !!el);
+      // Check if element exists
+      const element = await getElement(page, rule);
 
-      if (!elementExists) {
+      if (!element) {
         result[rule.name] = rule.multiple ? [] : null;
         continue;
       }
 
       if (rule.multiple) {
         // Extract ALL matching elements
-        result[rule.name] = await page.$$eval(
-          rule.selector,
-          (elements, currentRule) => {
-            return elements
-              .map((el) => {
-                try {
-                  switch (currentRule.type) {
-                    case "text":
-                      return el.textContent?.trim() || null;
-                    case "html":
-                      return el.innerHTML.trim();
-                    case "attribute":
-                      return currentRule.attribute
-                        ? el.getAttribute(currentRule.attribute)
-                        : null;
-                    default:
-                      return null;
-                  }
-                } catch (error) {
-                  return null;
-                }
-              })
-              .filter((item) => item !== null); // Filter out null results
-          },
-          rule
-        );
+        const elements = await getElements(page, rule);
+        const values = [];
+
+        for (const el of elements) {
+          const value = await extractValueFromElement(el, rule);
+          if (value !== null) {
+            values.push(value);
+          }
+        }
+
+        result[rule.name] = values;
       } else {
         // Extract ONLY THE FIRST matching element
-        result[rule.name] = await page
-          .$eval(
-            rule.selector,
-            (el, currentRule) => {
-              try {
-                switch (currentRule.type) {
-                  case "text":
-                    return el.textContent?.trim() || null;
-                  case "html":
-                    return el.innerHTML.trim();
-                  case "attribute":
-                    return currentRule.attribute
-                      ? el.getAttribute(currentRule.attribute)
-                      : null;
-                  default:
-                    return null;
-                }
-              } catch (error) {
-                return null;
-              }
-            },
-            rule
-          )
-          .catch(() => null); // If selector fails, return null
+        result[rule.name] = await extractValueFromElement(element, rule);
       }
     } catch (error) {
       console.warn(`Failed to extract with rule ${rule.name}:`, error);
