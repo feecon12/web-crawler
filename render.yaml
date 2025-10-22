@@ -1,3 +1,8 @@
+databases:
+  - name: web-crawler-db
+    databaseName: web_crawler
+    user: web_crawler_user
+
 services:
   # Web Service (Main Application)
   - type: web
@@ -22,13 +27,9 @@ services:
           name: web-crawler-redis
           property: connectionString
 
-  # PostgreSQL Database
-  - type: pserv
-    name: web-crawler-db
-    plan: starter
-
   # Redis Service
   - type: redis
     name: web-crawler-redis
     plan: starter
     maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
