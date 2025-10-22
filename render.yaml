@@ -3,7 +3,7 @@ services:
   - type: web
     name: web-crawler-app
     env: node
-    buildCommand: npm install && npx prisma generate && npm run build
+    buildCommand: npm ci && npx prisma generate && npm run build && npx playwright install chromium
     startCommand: npm run start:prod
     envVars:
       - key: NODE_ENV
